@@ -63,22 +63,30 @@ client.username_pw_set("tst2", "test")
 client.connect("m21.cloudmqtt.com", 17744, 60)
 client.subscribe('owntracks/#')
 
+client.loop_start()
+
 send_waypoints(client)
 
 roamStep = 800
 
 def main_loop(stdscr, client, baseTopic, baseX, baseY, roamStep, wayps):
+    global send_waypoints
+    
     def loc_fill(s):
         return textwrap.fill(s, (stdscr.getmaxyx()[1] - 5))
 
+    def on_message(client, userdata, msg):
+        stdscr.addstr(44, 0, loc_fill("-> Received - " + msg.topic + ': ' + msg.payload))
+        stdscr.refresh()
+        if msg.topic == baseTopic + '/cmd':
+            send_waypoints(client)
+    
     cornerX = baseX - 2; cornerY = baseY - 1
     
     randX = (50 - random.randint(1, 100)) / float(100) + baseX
     randY = (50 - random.randint(1, 100)) / float(100) + baseY
-    stdscr.addstr(0, 0, "Seed " + str(randX) + "," + str(randY))
-    stdscr.addstr(1, 0, loc_fill("Waypoints: " + str(wayps)))
-
-    client.on_message = lambda client, userdata, msg: stdscr.addstr(42, loc_fill("-> Received - " + msg.topic + ": " + msg.payload)); stdscr.refresh()
+    stdscr.addstr(40, 0, "Seed " + str(randX) + "," + str(randY))
+    stdscr.addstr(41, 0, loc_fill("Waypoints: " + str(wayps)))
 
     tmpY = 20
     stdscr.addstr(tmpY-1, 2, 'B @' + str(cornerX) + ',' + str(cornerY))
@@ -89,13 +97,15 @@ def main_loop(stdscr, client, baseTopic, baseX, baseY, roamStep, wayps):
         stdscr.addstr(tmpY, 2, "W " + w + "@" + str(wX) + ',' + str(wY))
         tmpY += 1
     stdscr.refresh()
-    
+
+    (wX, wY) = (0, 0)
+    prevCh = ' '
     while True:
         msg = ('{"_type":"location","acc":2,"batt":100,"lat":' + str(randX) + ',"lon":' + str(randY) + ',"tid":"tst2","tst":'
                + str(int(time.time())) + '}')
         stopic = baseTopic
         client.publish(stopic, payload=msg, qos=0, retain=False)
-        stdscr.addstr(40, 0, loc_fill("<- Sent - " + stopic + ': ' + msg))
+        stdscr.addstr(43, 0, loc_fill("<- Sent - " + stopic + ': ' + msg))
         
         stdscr.addstr(45, 0, "Press q to quit, hjklr to move location")
         stdscr.refresh()
@@ -116,10 +126,14 @@ def main_loop(stdscr, client, baseTopic, baseX, baseY, roamStep, wayps):
             offY = -10
         randX += offX / float(roamStep)
         randY += offY / float(roamStep)
-        
+
+        stdscr.addstr(wY, wX, prevCh) # clear previous
         wX = int((randX - cornerX) * 25)
         wY = int((randY - cornerY) * 15)
+        prevCh = stdscr.instr(wY, wX, 1)
         stdscr.addstr(wY, wX, '+')
         stdscr.addstr(tmpY, 2, "P " + w + "@" + str(wX) + ',' + str(wY))
 
 curses.wrapper(main_loop, client, baseTopic, baseX, baseY, roamStep, wayps)
+
+client.loop_stop()

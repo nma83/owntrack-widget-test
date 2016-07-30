@@ -111,9 +111,9 @@ def main_loop(stdscr, client, baseTopic, baseX, baseY, roamStep, wayps):
         elif c == 'l':
             offX = 10;
         elif c == 'j':
-            offY = -10;
+            offY = 10;
         elif c == 'k':
-            offY = 10
+            offY = -10
         randX += offX / float(roamStep)
         randY += offY / float(roamStep)
         
